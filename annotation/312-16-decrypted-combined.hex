@@ -173,7 +173,7 @@ Label_0xd4:
 ; run a timer in 0x8b eight times slower than the routine timer in 0x88/9/a
   d6:   a7 70           r26 &= 7;                           ; 0x07
   d8:   a7 30           cmp(r26, 0x07);                     ; 7
-  da:   19 f4           if (c1 != c2) goto is_it_time_to_go_to_next_program_block;
+  da:   19 f4           if (c1 != c2) goto is_it_time_to_go_to_next_module;
 ; (0x8B-$408b-routine-timer-slower)
   dc:   a3 a5           r26 = Memory[[r30:r31]+43];
   de:   a3 95           r26++;
@@ -181,39 +181,39 @@ Label_0xd4:
 
 ; Referenced from offset 0xda by brne
 ; Referenced from offset 0x29c by rjmp
-is_it_time_to_go_to_next_program_block:
+is_it_time_to_go_to_next_module:
   e2:   e0 e6           r30 = 96;                           ; 0x60
-; (0x[01]96-$4096-next-program-block-flags)
+; (0x[01]96-$4096-next-module-flags)
   e4:   a6 a9           r26 = Memory[[r30:r31]+54];
   e6:   aa 23           (r26 == 0) || (r26 < 0);            ; test r26
   e8:   91 f0           if (c1 == c2) goto is_it_time_to_change_gate;
   ea:   18 d1           set_routine_timer();                ; Parameter r26:r27, returns r0, sets T flag
   ec:   86 f4           if (T == 0) goto is_it_time_to_change_gate;
-; (0x[01]94-$4094-next-program-block-timer)
+; (0x[01]94-$4094-next-module-timer)
   ee:   a4 a9           r26 = Memory[[r30:r31]+52];
   f0:   ba 1b           r27 -= r26;                         ; No carry
-; (0x[01]95-$4095-next-program-block-timer-max)
+; (0x[01]95-$4095-next-module-timer-max)
   f2:   a5 a9           r26 = Memory[[r30:r31]+53];
   f4:   ba 17           cmp(r27, r26);
   f6:   58 f0           if (Carry) goto is_it_time_to_change_gate;
   f8:   03 94           r0++;
-; (0x[01]94-$4094-next-program-block-timer)
+; (0x[01]94-$4094-next-module-timer)
   fa:   04 aa           Memory[[r30:r31]+52] = r0;
-; (0x[01]97-$4097-next-program-block)
+; (0x[01]97-$4097-next-module)
   fc:   a7 a9           r26 = Memory[[r30:r31]+55];
   fe:   ff 23           (r31 == 0) || (r31 < 0);            ; test r31
- 100:   29 f0           if (c1 == c2) goto activate_next_program_block;
+ 100:   29 f0           if (c1 == c2) goto activate_next_module;
  102:   f0 e0           r31 = 0;                            ; 0x00
-; (0x[01]97-$4097-next-program-block)
+; (0x[01]97-$4097-next-module)
  104:   b7 a9           r27 = Memory[[r30:r31]+55];
  106:   ab 17           cmp(r26, r27);
  108:   f1 e0           r31 = 1;                            ; 0x01
-; if we're looking at B next program timer, see if we're the same mode as A and if so don't change the mode
+; if we're looking at B next module timer, see if we're the same mode as A and if so don't change the mode
  10a:   09 f0           if (c1 == c2) goto is_it_time_to_change_gate;
 
 ; Referenced from offset 0x100 by breq
-activate_next_program_block:
- 10c:   45 d5           CallTable_22_set_current_program_block();
+activate_next_module:
+ 10c:   45 d5           CallTable_22_start_module();
 
 ; Referenced from offset 0xe8 by breq
 ; Referenced from offset 0xec by brtc
@@ -543,7 +543,7 @@ Label_0x264:
 
 ; Referenced from offset 0x266 by breq
 Label_0x27c:
- 27c:   8d d4           CallTable_22_set_current_program_block();
+ 27c:   8d d4           CallTable_22_start_module();
 
 ; Referenced from offset 0x270 by breq
 ; Referenced from offset 0x27a by breq
@@ -576,7 +576,7 @@ Label_0x296:
  298:   11 f4           if (c1 != c2) goto Label_0x29e;
 ; now do it all again for Channel B instead of A
  29a:   f1 e0           r31 = 1;                            ; 0x01
- 29c:   22 cf           goto is_it_time_to_go_to_next_program_block;
+ 29c:   22 cf           goto is_it_time_to_go_to_next_module;
 
 ; Referenced from offset 0x298 by brne
 Label_0x29e:
@@ -628,7 +628,7 @@ Label_0x2ca:
  2ce:   be 70           r27 &= 14;                          ; 0x0e
  2d0:   ab 17           cmp(r26, r27);
  2d2:   09 f4           if (c1 != c2) goto Label_0x2d6;
- 2d4:   10 c0           goto audio_might_trigger_program_jump;
+ 2d4:   10 c0           goto audio_might_trigger_module_jump;
 
 ; Referenced from offset 0x2d2 by brne
 Label_0x2d6:
@@ -662,7 +662,7 @@ Label_0x2f4:
  2f4:   78 94           Enable_Interrupts();
 
 ; Referenced from offset 0x2d4 by rjmp
-audio_might_trigger_program_jump:
+audio_might_trigger_module_jump:
  2f6:   41 fe           skipif (bit(r4,1))
 ; r4 is copy of [0x83] Output Control Flags - bit1-wait-for-audio-trigger if set then let audio A trigger it off
  2f8:   0a c0           goto Label_0x30e;
@@ -677,9 +677,9 @@ audio_might_trigger_program_jump:
  304:   ab a1           r26 = Memory[[r28:r29]+35];
  306:   ad 7f           r26 &= 253;                         ; 0xfd
  308:   ab a3           Memory[[r28:r29]+35] = r26;
-; 0x8F=$408F program to go to on audio trigger
+; 0x8F=$408F module to go to on audio trigger
  30a:   af a5           r26 = Memory[[r28:r29]+47];
- 30c:   45 d4           CallTable_22_set_current_program_block();
+ 30c:   45 d4           CallTable_22_start_module();
 
 ; Referenced from offset 0x2f8 by rjmp
 ; Referenced from offset 0x2fe by brcs
@@ -940,7 +940,7 @@ Label_0x450:
  456:   fa 22           r15 &= r26;
 ; x84-0x4084-unknown
  458:   ac a1           r26 = Memory[[r28:r29]+36];
- 45a:   9e d3           CallTable_22_set_current_program_block();
+ 45a:   9e d3           CallTable_22_start_module();
 
 ; Referenced from offset 0x3d6 by rjmp
 ; Referenced from offset 0x452 by rjmp
@@ -1309,7 +1309,7 @@ Function_0x604:
 ; set r17[bit0] , set r17[bit1-is-splitmode]
  612:   1a 2b           r17 |= r26;
  614:   a1 e0           r26 = 1;                            ; 0x01
- 616:   c0 d2           CallTable_22_set_current_program_block();
+ 616:   c0 d2           CallTable_22_start_module();
 ; (0x74-$4074-random1-mode)
  618:   bc 89           r27 = Memory[[r28:r29]+20];
  61a:   bb 23           (r27 == 0) || (r27 < 0);            ; test r27
@@ -1357,11 +1357,11 @@ Label_0x63c:
  64a:   39 f4           if (c1 != c2) goto Label_0x65a;
 ; Mode: Waves (blocks 11/12)
  64c:   ab e0           r26 = 11;                           ; 0x0b
- 64e:   a4 d2           CallTable_22_set_current_program_block();
+ 64e:   a4 d2           CallTable_22_start_module();
  650:   11 ff           skipif (bit(r17,1))
  652:   02 c0           goto Label_0x658;
  654:   ac e0           r26 = 12;                           ; 0x0c
- 656:   a0 d2           CallTable_22_set_current_program_block();
+ 656:   a0 d2           CallTable_22_start_module();
 
 ; Referenced from offset 0x652 by rjmp
 Label_0x658:
@@ -1373,11 +1373,11 @@ Label_0x65a:
  65c:   39 f4           if (c1 != c2) goto Label_0x66c;
 ; Mode: Stroke (blocks 3/4)
  65e:   a3 e0           r26 = 3;                            ; 0x03
- 660:   9b d2           CallTable_22_set_current_program_block();
+ 660:   9b d2           CallTable_22_start_module();
  662:   11 ff           skipif (bit(r17,1))
  664:   02 c0           goto Label_0x66a;
  666:   a4 e0           r26 = 4;                            ; 0x04
- 668:   97 d2           CallTable_22_set_current_program_block();
+ 668:   97 d2           CallTable_22_start_module();
 
 ; Referenced from offset 0x664 by rjmp
 Label_0x66a:
@@ -1389,11 +1389,11 @@ Label_0x66c:
  66e:   39 f4           if (c1 != c2) goto Label_0x67e;
 ; Mode: Climb (blocks 5/8)
  670:   a5 e0           r26 = 5;                            ; 0x05
- 672:   92 d2           CallTable_22_set_current_program_block();
+ 672:   92 d2           CallTable_22_start_module();
  674:   11 ff           skipif (bit(r17,1))
  676:   02 c0           goto Label_0x67c;
  678:   a8 e0           r26 = 8;                            ; 0x08
- 67a:   8e d2           CallTable_22_set_current_program_block();
+ 67a:   8e d2           CallTable_22_start_module();
 
 ; Referenced from offset 0x676 by rjmp
 Label_0x67c:
@@ -1405,11 +1405,11 @@ Label_0x67e:
  680:   39 f4           if (c1 != c2) goto Label_0x690;
 ; Mode: Combo (blocks 13/33)
  682:   ad e0           r26 = 13;                           ; 0x0d
- 684:   89 d2           CallTable_22_set_current_program_block();
+ 684:   89 d2           CallTable_22_start_module();
  686:   11 ff           skipif (bit(r17,1))
  688:   02 c0           goto Label_0x68e;
  68a:   a1 e2           r26 = 33;                           ; 0x21
- 68c:   85 d2           CallTable_22_set_current_program_block();
+ 68c:   85 d2           CallTable_22_start_module();
 
 ; Referenced from offset 0x688 by rjmp
 Label_0x68e:
@@ -1421,11 +1421,11 @@ Label_0x690:
  692:   39 f4           if (c1 != c2) goto Label_0x6a2;
 ; Mode: Intense (blocks 14/2)
  694:   ae e0           r26 = 14;                           ; 0x0e
- 696:   80 d2           CallTable_22_set_current_program_block();
+ 696:   80 d2           CallTable_22_start_module();
  698:   11 ff           skipif (bit(r17,1))
  69a:   02 c0           goto Label_0x6a0;
  69c:   a2 e0           r26 = 2;                            ; 0x02
- 69e:   7c d2           CallTable_22_set_current_program_block();
+ 69e:   7c d2           CallTable_22_start_module();
 
 ; Referenced from offset 0x69a by rjmp
 Label_0x6a0:
@@ -1440,7 +1440,7 @@ Label_0x6a2:
  6a8:   19 f4           if (c1 != c2) goto Label_0x6b0;
 ; Mode: Rhythm (blocks 15)
  6aa:   af e0           r26 = 15;                           ; 0x0f
- 6ac:   75 d2           CallTable_22_set_current_program_block();
+ 6ac:   75 d2           CallTable_22_start_module();
  6ae:   58 c0           goto Label_0x760;
 
 ; Referenced from offset 0x6a8 by brne
@@ -1461,7 +1461,7 @@ Label_0x6b8:
  6be:   11 fd           skipif (!bit(r17,1))
  6c0:   a0 93 90 01     channel_b_current_gate_value = r26; ; 0x0190
  6c4:   a7 e1           r26 = 23;                           ; 0x17
- 6c6:   68 d2           CallTable_22_set_current_program_block();
+ 6c6:   68 d2           CallTable_22_start_module();
  6c8:   4b c0           goto Label_0x760;
 
 ; Referenced from offset 0x6b2 by brne
@@ -1483,7 +1483,7 @@ Label_0x6d0:
  6da:   11 fd           skipif (!bit(r17,1))
  6dc:   a0 93 90 01     channel_b_current_gate_value = r26; ; 0x0190
  6e0:   a2 e2           r26 = 34;                           ; 0x22
- 6e2:   5a d2           CallTable_22_set_current_program_block();
+ 6e2:   5a d2           CallTable_22_start_module();
  6e4:   a4 e0           r26 = 4;                            ; 0x04
 ; set 0x83=$4083 Output Control Flags all off except bit2-phase-control-3 (audio3 mode)
  6e6:   ab a3           Memory[[r28:r29]+35] = r26;
@@ -1507,7 +1507,7 @@ Label_0x6f8:
  6fa:   19 f4           if (c1 != c2) goto Label_0x702;
 ; Mode: Random2 (blocks 32)
  6fc:   a0 e2           r26 = 32;                           ; 0x20
- 6fe:   4c d2           CallTable_22_set_current_program_block();
+ 6fe:   4c d2           CallTable_22_start_module();
  700:   2f c0           goto Label_0x760;
 
 ; Referenced from offset 0x6fa by brne
@@ -1516,7 +1516,7 @@ Label_0x702:
  704:   19 f4           if (c1 != c2) goto Label_0x70c;
 ; Mode: Toggle (blocks 18)
  706:   a2 e1           r26 = 18;                           ; 0x12
- 708:   47 d2           CallTable_22_set_current_program_block();
+ 708:   47 d2           CallTable_22_start_module();
  70a:   2a c0           goto Label_0x760;
 
 ; Referenced from offset 0x704 by brne
@@ -1525,7 +1525,7 @@ Label_0x70c:
  70e:   19 f4           if (c1 != c2) goto Label_0x716;
 ; Mode: Orgasm (blocks 24)
  710:   a8 e1           r26 = 24;                           ; 0x18
- 712:   42 d2           CallTable_22_set_current_program_block();
+ 712:   42 d2           CallTable_22_start_module();
  714:   25 c0           goto Label_0x760;
 
 ; Referenced from offset 0x70e by brne
@@ -1534,7 +1534,7 @@ Label_0x716:
  718:   19 f4           if (c1 != c2) goto Label_0x720;
 ; Mode: Torment (blocks 28)
  71a:   ac e1           r26 = 28;                           ; 0x1c
- 71c:   3d d2           CallTable_22_set_current_program_block();
+ 71c:   3d d2           CallTable_22_start_module();
  71e:   20 c0           goto Label_0x760;
 
 ; Referenced from offset 0x718 by brne
@@ -1551,11 +1551,11 @@ Label_0x720:
 ; set 0x83=$4083 Output Control Flags all off except bit0-phase-control-0 and bit2-phase-control-2 (phase mode)
  72c:   ab a3           Memory[[r28:r29]+35] = r26;
  72e:   a4 e1           r26 = 20;                           ; 0x14
- 730:   33 d2           CallTable_22_set_current_program_block();
+ 730:   33 d2           CallTable_22_start_module();
  732:   11 ff           skipif (bit(r17,1))
  734:   02 c0           goto Label_0x73a;
  736:   a5 e1           r26 = 21;                           ; 0x15
- 738:   2f d2           CallTable_22_set_current_program_block();
+ 738:   2f d2           CallTable_22_start_module();
 
 ; Referenced from offset 0x734 by rjmp
 Label_0x73a:
@@ -1563,7 +1563,7 @@ Label_0x73a:
  73c:   a5 38           cmp(r26, 0x85);                     ; 133
  73e:   81 f0           if (c1 == c2) goto Label_0x760;
  740:   a3 e2           r26 = 35;                           ; 0x23
- 742:   2a d2           CallTable_22_set_current_program_block();
+ 742:   2a d2           CallTable_22_start_module();
  744:   0d c0           goto Label_0x760;
 
 ; Referenced from offset 0x726 by brcc
@@ -1572,7 +1572,7 @@ Label_0x746:
  748:   19 f4           if (c1 != c2) goto Label_0x750;
 ; Mode: Phase3 (blocks 22)
  74a:   a6 e1           r26 = 22;                           ; 0x16
- 74c:   25 d2           CallTable_22_set_current_program_block();
+ 74c:   25 d2           CallTable_22_start_module();
  74e:   08 c0           goto Label_0x760;
 
 ; Referenced from offset 0x748 by brne
@@ -1583,7 +1583,7 @@ Label_0x750:
 ; Mode: User1-7 read blocks from eprom 0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e (start vector user1-7)
  756:   0e 94 ee 0c     read_from_eeprom();                 ; Parameter r26:r27, returns r0
  75a:   a0 2d           r26 = r0;
- 75c:   1d d2           CallTable_22_set_current_program_block();
+ 75c:   1d d2           CallTable_22_start_module();
 
 ; Referenced from offset 0x754 by brcc
 Label_0x75e:
@@ -2443,11 +2443,11 @@ rjmp_main:
 ; Referenced from offset 0x742 by rcall
 ; Referenced from offset 0x74c by rcall
 ; Referenced from offset 0x75c by rcall
-CallTable_22_set_current_program_block:
+CallTable_22_start_module:
  b98:   ef 93           push    r30
  b9a:   ff 93           push    r31
  b9c:   cf 93           push    r28
- b9e:   e0 91 07 02     r30 = debug_show_program_block_calltable_22; ; 0x0207
+ b9e:   e0 91 07 02     r30 = debug_show_module_calltable_22; ; 0x0207
  ba2:   ee 23           (r30 == 0) || (r30 < 0);            ; test r30
  ba4:   19 f0           if (c1 == c2) goto Label_0xbac;
  ba6:   ea 2f           r30 = r26;
@@ -2457,25 +2457,25 @@ CallTable_22_set_current_program_block:
 ; Referenced from offset 0xba4 by breq
 Label_0xbac:
  bac:   a0 38           cmp(r26, 0x80);                     ; 128
- bae:   38 f0           if (Carry) goto calltable_22_internal_programs;
+ bae:   38 f0           if (Carry) goto calltable_22_internal_modules;
  bb0:   a0 3c           cmp(r26, 0xc0);                     ; 192
- bb2:   c0 f1           if (Carry) goto calltable_22_eeprom_programs;
+ bb2:   c0 f1           if (Carry) goto calltable_22_eeprom_modules;
  bb4:   a0 3e           cmp(r26, 0xe0);                     ; 224
  bb6:   10 f0           if (Carry) goto Label_0xbbc;
-; unrecognised program number
+; unrecognised module
  bb8:   aa e0           r26 = 10;                           ; 0x0a
  bba:   5d c5           goto error_handler;
 
 ; Referenced from offset 0xbb6 by brcs
 Label_0xbbc:
- bbc:   6a c0           goto calltable_22_scratchpad_programs_0xc0-0xdf;
+ bbc:   6a c0           goto calltable_22_scratchpad_module_0xc0-0xdf;
 
 ; Referenced from offset 0xbae by brcs
-calltable_22_internal_programs:
+calltable_22_internal_modules:
  bbe:   fc e1           r31 = 28;                           ; 0x1c
  bc0:   ee e3           r30 = 62;                           ; 0x3e
  bc2:   ea 0f           r30 += r26;                         ; No carry
-; Grab a byte (current program block) based on current mode (r18:r0) double it, add it to 0x2000 (or 0x2200)
+; Grab a byte (current module) based on current mode (r18:r0) double it, add it to 0x2000 (or 0x2200)
  bc4:   c8 95           r0 = Flash[r30:r31];
  bc6:   e0 e0           r30 = 0;                            ; 0x00
  bc8:   0e 16           cmp(r0, r30);
@@ -2497,7 +2497,7 @@ Label_0xbd0:
 ; Referenced from offset 0xc22 by rjmp
 Label_0xbde:
  bde:   b2 e0           r27 = 2;                            ; 0x02
-; r30:r31 now point to programblock (example 0x2070 for toggle (mode 18))
+; r30:r31 now point to module (example 0x2070 for toggle (mode 18))
  be0:   a8 e1           r26 = 24;                           ; 0x18
 ; copy r30:r31 to 0x218, if byte &e0!-0 ... lots of stuff
  be2:   c8 95           r0 = Flash[r30:r31];
@@ -2524,12 +2524,12 @@ Label_0xbf0:
  c06:   c6 95           r28 >>= 1;                          ; _BV(7) = 0, Carry = _BV(0) (logical shift)
  c08:   c3 95           r28++;
  c0a:   2c 2e           r2 = r28;
- c0c:   03 c0           goto copy_r28_bytes_from_programblock_to_0x218plus;
+ c0c:   03 c0           goto copy_r28_bytes_from_module_to_0x218plus;
 
 ; Referenced from offset 0xbfe by brne
 Label_0xc0e:
  c0e:   c1 e0           r28 = 1;                            ; 0x01
- c10:   01 c0           goto copy_r28_bytes_from_programblock_to_0x218plus;
+ c10:   01 c0           goto copy_r28_bytes_from_module_to_0x218plus;
 
 ; Referenced from offset 0xbf8 by breq
 Label_0xc12:
@@ -2538,22 +2538,22 @@ Label_0xc12:
 ; Referenced from offset 0xc0c by rjmp
 ; Referenced from offset 0xc10 by rjmp
 ; Referenced from offset 0xc1c by brne
-copy_r28_bytes_from_programblock_to_0x218plus:
+copy_r28_bytes_from_module_to_0x218plus:
  c14:   31 96           [r31:r30]++;
  c16:   c8 95           r0 = Flash[r30:r31];
  c18:   0d 92           Memory[[r26:r27]++] = r0;
  c1a:   ca 95           r28--;
- c1c:   d9 f7           if (c1 != c2) goto copy_r28_bytes_from_programblock_to_0x218plus;
+ c1c:   d9 f7           if (c1 != c2) goto copy_r28_bytes_from_module_to_0x218plus;
  c1e:   31 96           [r31:r30]++;
- c20:   66 d0           CallTable_30_handle_program_block_instruction();
+ c20:   66 d0           CallTable_30_handle_module_instruction();
  c22:   dd cf           goto Label_0xbde;
 
 ; Referenced from offset 0xbb2 by brcs
-calltable_22_eeprom_programs:
+calltable_22_eeprom_modules:
  c24:   c0 e4           r28 = 64;                           ; 0x40
  c26:   0c 2e           r0 = r28;
  c28:   a0 3a           cmp(r26, 0xa0);                     ; 160
- c2a:   30 f0           if (Carry) goto program_0x80-0x9f;
+ c2a:   30 f0           if (Carry) goto module_0x80-0x9f;
 ; 0xa0 to 0xbf
  c2c:   c0 e2           r28 = 32;                           ; 0x20
  c2e:   0c 2e           r0 = r28;
@@ -2563,7 +2563,7 @@ calltable_22_eeprom_programs:
  c36:   02 c0           goto Label_0xc3c;
 
 ; Referenced from offset 0xc2a by brcs
-program_0x80-0x9f:
+module_0x80-0x9f:
  c38:   df bb           IO[EEARH] = r29;
  c3a:   a0 56           r26 -= 96;                          ; 0x60, no carry
 
@@ -2573,7 +2573,7 @@ Label_0xc3c:
 ; if 0xa0 to 0xbf look at 0100-011f otherwise 0x80-0x9f look at 0020 to 003f
  c3e:   e0 9a           IO_BIT[EECR,0] = true;              ; 0x01 = 1
  c40:   ed b3           r30 = IO[EEDR];
-; get the byte and add 0x120(0xa0-0xbf) or 0x40(0x80-0x9f) then do same stuff as internal programs
+; get the byte and add 0x120(0xa0-0xbf) or 0x40(0x80-0x9f) then do same stuff as internal modules
  c42:   e0 0d           r30 += r0;                          ; No carry
 
 ; Referenced from offset 0xc90 by rjmp
@@ -2629,17 +2629,17 @@ Label_0xc7e:
  c86:   0d 92           Memory[[r26:r27]++] = r0;
  c88:   ca 95           r28--;
  c8a:   c9 f7           if (c1 != c2) goto Label_0xc7e;
- c8c:   30 d0           CallTable_30_handle_program_block_instruction();
+ c8c:   30 d0           CallTable_30_handle_module_instruction();
  c8e:   e3 95           r30++;
  c90:   d9 cf           goto Label_0xc44;
 
 ; Referenced from offset 0xbbc by rjmp
-calltable_22_scratchpad_programs_0xc0-0xdf:
+calltable_22_scratchpad_module_0xc0-0xdf:
  c92:   a0 5c           r26 -= 192;                         ; 0xc0, no carry
  c94:   f1 e0           r31 = 1;                            ; 0x01
  c96:   e0 ed           r30 = 208;                          ; 0xd0
  c98:   ea 0f           r30 += r26;                         ; No carry
-; mem[0x1d0_space_for_user_routine_scratchpad_b+(program number-0xc0)]+0xc0_space_for_user_routine_scratchpad_a is place to look for program data
+; mem[0x1d0_space_for_user_routine_scratchpad_b+(module-0xc0)]+0xc0_space_for_user_routine_scratchpad_a is place to look for module data
  c9a:   e0 81           r30 = Memory[r30:r31];
  c9c:   ff 27           r31 = 0x00;                         ; 0
  c9e:   c0 ec           r28 = 192;                          ; 0xc0
@@ -2692,7 +2692,7 @@ Label_0xcda:
  cdc:   0d 92           Memory[[r26:r27]++] = r0;
  cde:   ca 95           r28--;
  ce0:   e1 f7           if (c1 != c2) goto Label_0xcda;
- ce2:   05 d0           CallTable_30_handle_program_block_instruction();
+ ce2:   05 d0           CallTable_30_handle_module_instruction();
  ce4:   df cf           goto Label_0xca4;
 
 ; Referenced from offset 0xbee by rjmp
@@ -2708,7 +2708,7 @@ Label_0xce6:
 ; Referenced from offset 0xc20 by rcall
 ; Referenced from offset 0xc8c by rcall
 ; Referenced from offset 0xce2 by rcall
-CallTable_30_handle_program_block_instruction:
+CallTable_30_handle_module_instruction:
  cee:   ef 93           push    r30
  cf0:   ff 93           push    r31
  cf2:   2f 93           push    r18
@@ -5666,112 +5666,112 @@ String_0x1b10_fla_unknown_0x1b10_3:    ; Address 0x1be2 (7138)
 .word 0xffff
 .word 0xffff
 
-; Inline PGM data: 1 byte starting at 0x1c3e (program_lookup_0x1c3e+0)
+; Inline PGM data: 1 byte starting at 0x1c3e (module_lookup_0x1c3e+0)
 .byte 0x7a
 
-; Inline PGM data: 1 byte starting at 0x1c3f (program_lookup_0x1c3e+1)
+; Inline PGM data: 1 byte starting at 0x1c3f (module_lookup_0x1c3e+1)
 .byte 0x7c
 
-; Inline PGM data: 1 byte starting at 0x1c40 (program_lookup_0x1c3e+2_intenseb)
+; Inline PGM data: 1 byte starting at 0x1c40 (module_lookup_0x1c3e+2_intenseb)
 .byte 0x7e
 
-; Inline PGM data: 1 byte starting at 0x1c41 (program_lookup_0x1c3e+3_strokeb)
+; Inline PGM data: 1 byte starting at 0x1c41 (module_lookup_0x1c3e+3_strokeb)
 .byte 0x82
 
-; Inline PGM data: 1 byte starting at 0x1c42 (program_lookup_0x1c3e+4_strokeb)
+; Inline PGM data: 1 byte starting at 0x1c42 (module_lookup_0x1c3e+4_strokeb)
 .byte 0xc2
 
-; Inline PGM data: 1 byte starting at 0x1c43 (program_lookup_0x1c3e+5_climba)
+; Inline PGM data: 1 byte starting at 0x1c43 (module_lookup_0x1c3e+5_climba)
 .byte 0xcb
 
-; Inline PGM data: 1 byte starting at 0x1c44 (program_lookup_0x1c3e+6)
+; Inline PGM data: 1 byte starting at 0x1c44 (module_lookup_0x1c3e+6)
 .byte 0xd3
 
-; Inline PGM data: 1 byte starting at 0x1c45 (program_lookup_0x1c3e+7)
+; Inline PGM data: 1 byte starting at 0x1c45 (module_lookup_0x1c3e+7)
 .byte 0xd7
 
-; Inline PGM data: 1 byte starting at 0x1c46 (program_lookup_0x1c3e+8_climbb)
+; Inline PGM data: 1 byte starting at 0x1c46 (module_lookup_0x1c3e+8_climbb)
 .byte 0xdb
 
-; Inline PGM data: 1 byte starting at 0x1c47 (program_lookup_0x1c3e+9_b_variant_of_6)
+; Inline PGM data: 1 byte starting at 0x1c47 (module_lookup_0x1c3e+9_b_variant_of_6)
 .byte 0x00
 
-; Inline PGM data: 1 byte starting at 0x1c48 (program_lookup_0x1c3e+10_b_vairant_of_7)
+; Inline PGM data: 1 byte starting at 0x1c48 (module_lookup_0x1c3e+10_b_vairant_of_7)
 .byte 0x05
 
-; Inline PGM data: 1 byte starting at 0x1c49 (program_lookup_0x1c3e+11_wavesa)
+; Inline PGM data: 1 byte starting at 0x1c49 (module_lookup_0x1c3e+11_wavesa)
 .byte 0x0a
 
-; Inline PGM data: 1 byte starting at 0x1c4a (program_lookup_0x1c3e+12_wavesb)
+; Inline PGM data: 1 byte starting at 0x1c4a (module_lookup_0x1c3e+12_wavesb)
 .byte 0x13
 
-; Inline PGM data: 1 byte starting at 0x1c4b (program_lookup_0x1c3e+13_comboa)
+; Inline PGM data: 1 byte starting at 0x1c4b (module_lookup_0x1c3e+13_comboa)
 .byte 0x16
 
-; Inline PGM data: 1 byte starting at 0x1c4c (program_lookup_0x1c3e+14_intensea)
+; Inline PGM data: 1 byte starting at 0x1c4c (module_lookup_0x1c3e+14_intensea)
 .byte 0x1f
 
-; Inline PGM data: 1 byte starting at 0x1c4d (program_lookup_0x1c3e+15_rhythm)
+; Inline PGM data: 1 byte starting at 0x1c4d (module_lookup_0x1c3e+15_rhythm)
 .byte 0x21
 
-; Inline PGM data: 1 byte starting at 0x1c4e (program_lookup_0x1c3e+16_rhythm_part2)
+; Inline PGM data: 1 byte starting at 0x1c4e (module_lookup_0x1c3e+16_rhythm_part2)
 .byte 0x31
 
-; Inline PGM data: 1 byte starting at 0x1c4f (program_lookup_0x1c3e+17_rhythm_part3)
+; Inline PGM data: 1 byte starting at 0x1c4f (module_lookup_0x1c3e+17_rhythm_part3)
 .byte 0x35
 
-; Inline PGM data: 1 byte starting at 0x1c50 (program_lookup_0x1c3e+18_toggle)
+; Inline PGM data: 1 byte starting at 0x1c50 (module_lookup_0x1c3e+18_toggle)
 .byte 0x38
 
-; Inline PGM data: 1 byte starting at 0x1c51 (program_lookup_0x1c3e+19_toggle_part2)
+; Inline PGM data: 1 byte starting at 0x1c51 (module_lookup_0x1c3e+19_toggle_part2)
 .byte 0x43
 
-; Inline PGM data: 1 byte starting at 0x1c52 (program_lookup_0x1c3e+20_phase1a)
+; Inline PGM data: 1 byte starting at 0x1c52 (module_lookup_0x1c3e+20_phase1a)
 .byte 0x4b
 
-; Inline PGM data: 1 byte starting at 0x1c53 (program_lookup_0x1c3e+21_phase2a)
+; Inline PGM data: 1 byte starting at 0x1c53 (module_lookup_0x1c3e+21_phase2a)
 .byte 0x51
 
-; Inline PGM data: 1 byte starting at 0x1c54 (program_lookup_0x1c3e+22_phase3)
+; Inline PGM data: 1 byte starting at 0x1c54 (module_lookup_0x1c3e+22_phase3)
 .byte 0x53
 
-; Inline PGM data: 1 byte starting at 0x1c55 (program_lookup_0x1c3e+23_audio12)
+; Inline PGM data: 1 byte starting at 0x1c55 (module_lookup_0x1c3e+23_audio12)
 .byte 0x5b
 
-; Inline PGM data: 1 byte starting at 0x1c56 (program_lookup_0x1c3e+24_orgasm)
+; Inline PGM data: 1 byte starting at 0x1c56 (module_lookup_0x1c3e+24_orgasm)
 .byte 0x5e
 
-; Inline PGM data: 1 byte starting at 0x1c57 (program_lookup_0x1c3e+25_orgasm_part2)
+; Inline PGM data: 1 byte starting at 0x1c57 (module_lookup_0x1c3e+25_orgasm_part2)
 .byte 0x68
 
-; Inline PGM data: 1 byte starting at 0x1c58 (program_lookup_0x1c3e+26_orgasm_part3)
+; Inline PGM data: 1 byte starting at 0x1c58 (module_lookup_0x1c3e+26_orgasm_part3)
 .byte 0x70
 
-; Inline PGM data: 1 byte starting at 0x1c59 (program_lookup_0x1c3e+27_orgasm_part4)
+; Inline PGM data: 1 byte starting at 0x1c59 (module_lookup_0x1c3e+27_orgasm_part4)
 .byte 0x74
 
-; Inline PGM data: 1 byte starting at 0x1c5a (program_lookup_0x1c3e+28_torment)
+; Inline PGM data: 1 byte starting at 0x1c5a (module_lookup_0x1c3e+28_torment)
 .byte 0x8d
 
-; Inline PGM data: 1 byte starting at 0x1c5b (program_lookup_0x1c3e+29_torment_a_on)
+; Inline PGM data: 1 byte starting at 0x1c5b (module_lookup_0x1c3e+29_torment_a_on)
 .byte 0xa1
 
-; Inline PGM data: 1 byte starting at 0x1c5c (program_lookup_0x1c3e+30_torment_b_on)
+; Inline PGM data: 1 byte starting at 0x1c5c (module_lookup_0x1c3e+30_torment_b_on)
 .byte 0xa6
 
-; Inline PGM data: 1 byte starting at 0x1c5d (program_lookup_0x1c3e+31_torment_a_on)
+; Inline PGM data: 1 byte starting at 0x1c5d (module_lookup_0x1c3e+31_torment_a_on)
 .byte 0xab
 
-; Inline PGM data: 1 byte starting at 0x1c5e (program_lookup_0x1c3e+32_random2)
+; Inline PGM data: 1 byte starting at 0x1c5e (module_lookup_0x1c3e+32_random2)
 .byte 0xb0
 
-; Inline PGM data: 1 byte starting at 0x1c5f (program_lookup_0x1c3e+33_combob)
+; Inline PGM data: 1 byte starting at 0x1c5f (module_lookup_0x1c3e+33_combob)
 .byte 0x1c
 
-; Inline PGM data: 1 byte starting at 0x1c60 (program_lookup_0x1c3e+34_audio3)
+; Inline PGM data: 1 byte starting at 0x1c60 (module_lookup_0x1c3e+34_audio3)
 .byte 0xc7
 
-; Inline PGM data: 1 byte starting at 0x1c61 (program_lookup_0x1c3e+35_phase2b)
+; Inline PGM data: 1 byte starting at 0x1c61 (module_lookup_0x1c3e+35_phase2b)
 .byte 0x11
 
 ; Inline PGM data: 7 words starting at 0x1c62 (FFFF)
@@ -6421,7 +6421,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 ; Inline PGM data: 1 byte starting at 0x1fff (firmware_version_release)
 .byte 0x00
 
-; Inline PGM data: 10 bytes starting at 0x2000 (programblock_climbc_blockb)
+; Inline PGM data: 10 bytes starting at 0x2000 (module_climbc_blockb)
 .byte 0x85
 .byte 0x02
 .byte 0xb2
@@ -6433,7 +6433,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 10 bytes starting at 0x200a (programblock_climbc_blockc)
+; Inline PGM data: 10 bytes starting at 0x200a (module_climbc_blockc)
 .byte 0x85
 .byte 0x02
 .byte 0xb2
@@ -6445,7 +6445,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 14 bytes starting at 0x2014 (programblock_strokeb)
+; Inline PGM data: 14 bytes starting at 0x2014 (module_strokeb)
 .byte 0x86
 .byte 0x01
 .byte 0x87
@@ -6461,13 +6461,13 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 4 bytes starting at 0x2022 (programblock_phase2)
+; Inline PGM data: 4 bytes starting at 0x2022 (module_phase2)
 .byte 0xac
 .byte 0x25
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 6 bytes starting at 0x2026 (programblock_wavesb)
+; Inline PGM data: 6 bytes starting at 0x2026 (module_wavesb)
 .byte 0xfb
 .byte 0x03
 .byte 0xf0
@@ -6475,7 +6475,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 12 bytes starting at 0x202c (programblock_comboa)
+; Inline PGM data: 12 bytes starting at 0x202c (module_comboa)
 .byte 0x86
 .byte 0x00
 .byte 0x87
@@ -6489,7 +6489,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 6 bytes starting at 0x2038 (programblock_combob)
+; Inline PGM data: 6 bytes starting at 0x2038 (module_combob)
 .byte 0xf2
 .byte 0x02
 .byte 0xfb
@@ -6497,13 +6497,13 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 4 bytes starting at 0x203e (programblock_intensea)
+; Inline PGM data: 4 bytes starting at 0x203e (module_intensea)
 .byte 0x86
 .byte 0x09
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 32 bytes starting at 0x2042 (programblock_rhythm)
+; Inline PGM data: 32 bytes starting at 0x2042 (module_rhythm)
 .byte 0x95
 .byte 0x1f
 .byte 0x95
@@ -6537,7 +6537,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 14 bytes starting at 0x2062 (programblock_rhythm_blockb)
+; Inline PGM data: 14 bytes starting at 0x2062 (module_rhythm_blockb)
 .byte 0xb7
 .byte 0xb4
 .byte 0x97
@@ -6553,7 +6553,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 22 bytes starting at 0x2070 (programblock_toggle)
+; Inline PGM data: 22 bytes starting at 0x2070 (module_toggle)
 .byte 0xb5
 .byte 0x04
 .byte 0x96
@@ -6577,7 +6577,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 16 bytes starting at 0x2086 (programblock_toggle_blockb)
+; Inline PGM data: 16 bytes starting at 0x2086 (module_toggle_blockb)
 .byte 0x85
 .byte 0x01
 .byte 0x90
@@ -6595,7 +6595,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 12 bytes starting at 0x2096 (programblock_phase1a)
+; Inline PGM data: 12 bytes starting at 0x2096 (module_phase1a)
 .byte 0x86
 .byte 0x01
 .byte 0x87
@@ -6609,13 +6609,13 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 4 bytes starting at 0x20a2 (programblock_phase2a)
+; Inline PGM data: 4 bytes starting at 0x20a2 (module_phase2a)
 .byte 0xb7
 .byte 0x79
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 16 bytes starting at 0x20a6 (programblock_phase3)
+; Inline PGM data: 16 bytes starting at 0x20a6 (module_phase3)
 .byte 0x83
 .byte 0x08
 .byte 0xd0
@@ -6633,7 +6633,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 6 bytes starting at 0x20b6 (programblock_audio12)
+; Inline PGM data: 6 bytes starting at 0x20b6 (module_audio12)
 .byte 0xb5
 .byte 0x04
 .byte 0xbe
@@ -6641,7 +6641,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 20 bytes starting at 0x20bc (programblock_orgasm)
+; Inline PGM data: 20 bytes starting at 0x20bc (module_orgasm)
 .byte 0xac
 .byte 0x00
 .byte 0xb7
@@ -6663,7 +6663,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 24 bytes starting at 0x20d0 (programblock_orgasm_blockb)
+; Inline PGM data: 24 bytes starting at 0x20d0 (module_orgasm_blockb)
 .byte 0x85
 .byte 0x01
 .byte 0xbb
@@ -6689,7 +6689,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 12 bytes starting at 0x20e8 (programblock_orgasm_blockd)
+; Inline PGM data: 12 bytes starting at 0x20e8 (module_orgasm_blockd)
 .byte 0x85
 .byte 0x01
 .byte 0xbe
@@ -6703,7 +6703,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 4 bytes starting at 0x20f4 (programblock_program1)
+; Inline PGM data: 4 bytes starting at 0x20f4 (module_program1)
 .byte 0x90
 .byte 0x06
 .byte 0x00
@@ -6715,7 +6715,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 8 bytes starting at 0x20fc (programblock_intenseb)
+; Inline PGM data: 8 bytes starting at 0x20fc (module_intenseb)
 .byte 0xd8
 .byte 0x3f
 .byte 0xd9
@@ -6725,7 +6725,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 22 bytes starting at 0x2104 (programblock_climbc_blockc)
+; Inline PGM data: 22 bytes starting at 0x2104 (module_climbc_blockc)
 .byte 0xa9
 .byte 0x02
 .byte 0xac
@@ -6749,7 +6749,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 40 bytes starting at 0x211a (programblock_climbc_torment)
+; Inline PGM data: 40 bytes starting at 0x211a (module_climbc_torment)
 .byte 0x85
 .byte 0x03
 .byte 0xac
@@ -6791,7 +6791,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 10 bytes starting at 0x2142 (programblock_torment_blockb)
+; Inline PGM data: 10 bytes starting at 0x2142 (module_torment_blockb)
 .byte 0x85
 .byte 0x03
 .byte 0xac
@@ -6803,7 +6803,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 10 bytes starting at 0x214c (programblock_torment_blockc)
+; Inline PGM data: 10 bytes starting at 0x214c (module_torment_blockc)
 .byte 0x85
 .byte 0x02
 .byte 0xac
@@ -6815,7 +6815,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 10 bytes starting at 0x2156 (programblock_torment_blockd)
+; Inline PGM data: 10 bytes starting at 0x2156 (module_torment_blockd)
 .byte 0x85
 .byte 0x01
 .byte 0xac
@@ -6827,7 +6827,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 36 bytes starting at 0x2160 (programblock_torment_random2)
+; Inline PGM data: 36 bytes starting at 0x2160 (module_torment_random2)
 .byte 0x8d
 .byte 0x01
 .byte 0x8e
@@ -6865,7 +6865,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 10 bytes starting at 0x2184 (programblock_strokeb)
+; Inline PGM data: 10 bytes starting at 0x2184 (module_strokeb)
 .byte 0xec
 .byte 0x41
 .byte 0xe6
@@ -6877,7 +6877,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 8 bytes starting at 0x218e (programblock_audio3)
+; Inline PGM data: 8 bytes starting at 0x218e (module_audio3)
 .byte 0xb5
 .byte 0x00
 .byte 0xbe
@@ -6887,7 +6887,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 16 bytes starting at 0x2196 (programblock_climba)
+; Inline PGM data: 16 bytes starting at 0x2196 (module_climba)
 .byte 0x86
 .byte 0x01
 .byte 0x87
@@ -6905,7 +6905,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 8 bytes starting at 0x21a6 (programblock_climba_blockb)
+; Inline PGM data: 8 bytes starting at 0x21a6 (module_climba_blockb)
 .byte 0xb2
 .byte 0x02
 .byte 0xae
@@ -6915,7 +6915,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 8 bytes starting at 0x21ae (programblock_climba_blockc)
+; Inline PGM data: 8 bytes starting at 0x21ae (module_climba_blockc)
 .byte 0xb2
 .byte 0x04
 .byte 0xae
@@ -6925,7 +6925,7 @@ String_0x1f90_Space8_3_0:    ; Address 0x1f90 (8080)
 .byte 0x00
 .byte 0x00
 
-; Inline PGM data: 18 bytes starting at 0x21b6 (programblock_climbb)
+; Inline PGM data: 18 bytes starting at 0x21b6 (module_climbb)
 .byte 0x85
 .byte 0x02
 .byte 0x86
