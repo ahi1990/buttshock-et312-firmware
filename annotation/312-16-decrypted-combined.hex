@@ -1235,7 +1235,7 @@ Label_0x5c0:
  5c4:   a6 e9           r26 = 150;                          ; 0x96
  5c6:   b0 91 0d 02     r27 = current_multi_adjust_value;   ; 0x020d
  5ca:   ba 0f           r27 += r26;                         ; No carry
-; r14 is min(50,[x1B7]) Channel B: Current Width Modulation Value)
+; r9 is min(50,[xB7] Channel A: Current Width Modulation Value)
  5cc:   9e 14           cmp(r9, r14);
  5ce:   18 f0           if (Carry) goto Label_0x5d6;
  5d0:   9a 2e           r9 = r26;
@@ -1447,7 +1447,7 @@ Label_0x6a2:
 Label_0x6b0:
  6b0:   ac 37           cmp(r26, 0x7c);                     ; 124
  6b2:   59 f4           if (c1 != c2) goto Label_0x6ca;
-; Mode: Audio1 (blocks 23)
+; set 0x83=$4083 Output Control Flags all off except bit6-mono-mode (audio1 mode)
  6b4:   a0 e4           r26 = 64;                           ; 0x40
  6b6:   ab a3           Memory[[r28:r29]+35] = r26;
 
@@ -1632,7 +1632,7 @@ Label_0x772:
 ; r8 is min(9,[xAE] Channel A: Current Frequency Modulation Value)
  77c:   8d 14           cmp(r8, r13);
  77e:   29 f4           if (c1 != c2) goto Label_0x78a;
-; r14 is min(50,[x1B7]) Channel B: Current Width Modulation Value)
+; r9 is min(50,[xB7] Channel A: Current Width Modulation Value)
  780:   e9 14           cmp(r14, r9);
  782:   19 f0           if (c1 == c2) goto Label_0x78a;
  784:   08 f0           if (Carry) goto Label_0x788;
@@ -1992,7 +1992,7 @@ Label_0x93e:
 Label_0x94a:
  94a:   ae 30           cmp(r26, 0x0e);                     ; 14
  94c:   61 f4           if (c1 != c2) goto Label_0x966;
-; Menu option 14 selected do this (show advanced menu)
+CallTable_15_Show_advanced_menu:
  94e:   a2 ed           r26 = 210;                          ; 0xd2
  950:   a9 8f           Memory[[r28:r29]+25] = r26;
  952:   a8 8f           Memory[[r28:r29]+24] = r26;
@@ -3686,37 +3686,41 @@ USART_RX_Complete:
 117c:   ff 93           push    r31
 ; Already got a command but it's not been handled yet? ignore input (r17[bit5-received-serial-command])
 117e:   15 fd           skipif (!bit(r17,5))
-1180:   1f c0           goto Label_0x11c0;
+1180:   1f c0           goto USART_RX_Complete_error;
 1182:   8b b1           r24 = IO[UCSRA];
 1184:   88 71           r24 &= 24;                          ; 0x18
-1186:   e1 f4           if (c1 != c2) goto Label_0x11c0;
+1186:   e1 f4           if (c1 != c2) goto USART_RX_Complete_error;
 1188:   7c b1           r23 = IO[UDR];
 118a:   80 91 13 02     r24 = cipher_key;                   ; 0x0213
 118e:   78 27           r23 ^= r24;
 1190:   f2 e0           r31 = 2;                            ; 0x02
 1192:   e0 91 f2 01     r30 = counter_for_0x220;            ; 0x01f2
 1196:   ec 32           cmp(r30, 0x2c);                     ; 44
-1198:   98 f4           if (!Carry) goto Label_0x11c0;
+; is our receive buffer full? ignore the byte
+1198:   98 f4           if (!Carry) goto USART_RX_Complete_error;
 119a:   71 93           Memory[[r30:r31]++] = r23;
 119c:   e0 93 f2 01     counter_for_0x220 = r30;            ; 0x01f2
 11a0:   e1 32           cmp(r30, 0x21);                     ; 33
 11a2:   21 f4           if (c1 != c2) goto Label_0x11ac;
+; the high nibble of the first received byte is the length of the serial instruction
 11a4:   72 95           r23 = ((r23 & 0xf0) >> 4) | ((r23 & 0x0f) << 4); ; swap nibbles
 11a6:   7f 70           r23 &= 15;                          ; 0x0f
-11a8:   70 93 12 02     mem_unknown_0x212 = r23;            ; 0x0212
+11a8:   70 93 12 02     serial_instruction_expected_length = r23; ; 0x0212
 
 ; Referenced from offset 0x11a2 by brne
 Label_0x11ac:
-11ac:   70 91 12 02     r23 = mem_unknown_0x212;            ; 0x0212
+11ac:   70 91 12 02     r23 = serial_instruction_expected_length; ; 0x0212
+; add 0x21
 11b0:   7f 5d           r23 -= 223;                         ; 0xdf, no carry
+; look to see if we've received all the bytes we need
 11b2:   e7 17           cmp(r30, r23);
-11b4:   08 f0           if (Carry) goto Label_0x11b8;
-; set r17[bit5-received-serial-command] 
+11b4:   08 f0           if (Carry) goto USART_RX_Complete_done;
+; set r17[bit5-received-serial-command] as our instruction is complete
 11b6:   10 62           r17 |= 32;                          ; 0x20
 
 ; Referenced from offset 0x11b4 by brcs
 ; Referenced from offset 0x11c6 by rjmp
-Label_0x11b8:
+USART_RX_Complete_done:
 11b8:   ff 91           pop     r31
 11ba:   ef 91           pop     r30
 11bc:   1f be           IO[SREG] = r1;
@@ -3726,13 +3730,13 @@ Label_0x11b8:
 ; Referenced from offset 0x1180 by rjmp
 ; Referenced from offset 0x1186 by brne
 ; Referenced from offset 0x1198 by brcc
-Label_0x11c0:
+USART_RX_Complete_error:
 11c0:   10 66           r17 |= 96;                          ; 0x60
 ; above set r17[bit5-received-serial-command], set r17[bit6]
 11c2:   a8 e1           r26 = 24;                           ; 0x18
 ; enable RXEN and TXEN in USART control register (no interrupts)
 11c4:   aa b9           IO[UCSRB] = r26;
-11c6:   f8 cf           goto Label_0x11b8;
+11c6:   f8 cf           goto USART_RX_Complete_done;
 
 ; Referenced from offset 0x1514 by rcall
 initialize_lcd:
@@ -5105,16 +5109,19 @@ handle_received_serial_command:
 1858:   c4 9a           IO_BIT[PORTB,4] = true;             ; 0x10 = 16
 ; above pin B4 isn't used
 185a:   cf 93           push    r28
+; if r17[bit6] is set then an error happened so send a handshake byte
 185c:   16 fd           skipif (!bit(r17,6))
 185e:   98 c0           goto serial_protocol_write_handshake_to_com_buffer;
 1860:   e0 e2           r30 = 32;                           ; 0x20
 1862:   f2 e0           r31 = 2;                            ; 0x02
+; get first byte of serial command (r0 full, r28 lower nibble)
 1864:   c1 91           r28 = Memory[[r30:r31]++];
 1866:   0c 2e           r0 = r28;
 1868:   cf 70           r28 &= 15;                          ; 0x0f
-186a:   b0 91 12 02     r27 = mem_unknown_0x212;            ; 0x0212
+186a:   b0 91 12 02     r27 = serial_instruction_expected_length; ; 0x0212
 186e:   bb 23           (r27 == 0) || (r27 < 0);            ; test r27
-1870:   31 f5           if (c1 != c2) goto Label_0x18be;
+1870:   31 f5           if (c1 != c2) goto handle_multibyte_serial_instruction;
+; it's a single byte command, and if 0x6 or less send handshake byte
 1872:   c6 30           cmp(r28, 0x06);                     ; 6
 1874:   08 f4           if (!Carry) goto Label_0x1878;
 1876:   8c c0           goto serial_protocol_write_handshake_to_com_buffer;
@@ -5123,13 +5130,14 @@ handle_received_serial_command:
 Label_0x1878:
 1878:   c9 30           cmp(r28, 0x09);                     ; 9
 187a:   08 f4           if (!Carry) goto Label_0x187e;
-187c:   82 c0           goto Label_0x1982;
+; got 0x7 or 0x8 or 0x9? ignore it
+187c:   82 c0           goto handle_received_serial_command_done;
 
 ; Referenced from offset 0x187a by brcc
 Label_0x187e:
 187e:   ce 30           cmp(r28, 0x0e);                     ; 14
-; if we got a 0x0e we're a slave box, send back a 0x05 and set r16[bit2-we-are-slave]
 1880:   51 f4           if (c1 != c2) goto Label_0x1896;
+; if we got a 0x0e we're a slave box, send back a 0x05 and set r16[bit2-we-are-slave]
 1882:   a5 e0           r26 = 5;                            ; 0x05
 1884:   ac b9           IO[UDR] = r26;
 1886:   a4 e0           r26 = 4;                            ; 0x04
@@ -5146,9 +5154,10 @@ Label_0x187e:
 ; Referenced from offset 0x1880 by brne
 Label_0x1896:
 1896:   7c de           copy_flash_0x1fdc_to_memory_0x01f0();
-1898:   74 c0           goto Label_0x1982;
+1898:   74 c0           goto handle_received_serial_command_done;
+serial_protocol_dead_code:
 189a:   01 fe           skipif (bit(r0,1))
-189c:   06 c0           goto Label_0x18aa;
+189c:   06 c0           goto serial_protocol_dead_code_2;
 189e:   c0 e9           r28 = 144;                          ; 0x90
 18a0:   a8 81           r26 = Memory[r28:r29];
 18a2:   a0 6a           r26 |= 160;                         ; 0xa0
@@ -5158,7 +5167,7 @@ Label_0x1896:
 18a8:   de da           IRQ0_Handler();
 
 ; Referenced from offset 0x189c by rjmp
-Label_0x18aa:
+serial_protocol_dead_code_2:
 18aa:   00 fe           skipif (bit(r0,0))
 18ac:   68 c0           goto serial_protocol_write_success_to_com_buffer;
 18ae:   a0 e9           r26 = 144;                          ; 0x90
@@ -5171,25 +5180,27 @@ Label_0x18aa:
 18bc:   60 c0           goto serial_protocol_write_success_to_com_buffer;
 
 ; Referenced from offset 0x1870 by brne
-Label_0x18be:
+handle_multibyte_serial_instruction:
 18be:   b0 5e           r27 -= 224;                         ; 0xe0, no carry
 18c0:   2b 2e           r2 = r27;
 
 ; Referenced from offset 0x18c8 by brcs
-Label_0x18c2:
+calculate_checksum:
 18c2:   a1 91           r26 = Memory[[r30:r31]++];
 18c4:   0a 0e           r0 += r26;                          ; No carry
 18c6:   eb 17           cmp(r30, r27);
-18c8:   e0 f3           if (Carry) goto Label_0x18c2;
+18c8:   e0 f3           if (Carry) goto calculate_checksum;
 18ca:   a0 81           r26 = Memory[r30:r31];
 18cc:   a0 15           cmp(r26, r0);
-18ce:   09 f0           if (c1 == c2) goto Label_0x18d2;
+18ce:   09 f0           if (c1 == c2) goto serial_protocol_checksum_ok;
+; checksum error
 18d0:   5f c0           goto serial_protocol_write_handshake_to_com_buffer;
 
 ; Referenced from offset 0x18ce by breq
-Label_0x18d2:
+serial_protocol_checksum_ok:
 18d2:   cf 30           cmp(r28, 0x0f);                     ; 15
 18d4:   89 f4           if (c1 != c2) goto Label_0x18f8;
+serial_protocol_command_f_is_key_synchronization:
 18d6:   a1 e2           r26 = 33;                           ; 0x21
 18d8:   96 d0           write_r26_to_com_buffer();          ; Parameters r26
 18da:   e1 e2           r30 = 33;                           ; 0x21
@@ -5202,19 +5213,20 @@ Label_0x18dc:
 18e2:   ba 27           r27 ^= r26;
 18e4:   c5 e5           r28 = 85;                           ; 0x55
 18e6:   bc 27           r27 ^= r28;
+; if we ended up with a cipher_key of 0, repeat until we don't
 18e8:   bb 23           (r27 == 0) || (r27 < 0);            ; test r27
 18ea:   c1 f3           if (c1 == c2) goto Label_0x18dc;
 18ec:   b0 93 13 02     cipher_key = r27;                   ; 0x0213
 18f0:   8a d0           write_r26_to_com_buffer();          ; Parameters r26
 18f2:   af 5d           r26 -= 223;                         ; 0xdf, no carry
 18f4:   88 d0           write_r26_to_com_buffer();          ; Parameters r26
-18f6:   45 c0           goto Label_0x1982;
+18f6:   45 c0           goto handle_received_serial_command_done;
 
 ; Referenced from offset 0x18d4 by brne
 Label_0x18f8:
 18f8:   c8 30           cmp(r28, 0x08);                     ; 8
 18fa:   31 f4           if (c1 != c2) goto Label_0x1908;
-; if we get a 0x_8 0xaa over serial then reset the box
+; if we get a 0x18 0xaa over serial then reset the box
 18fc:   ea 95           r30--;
 18fe:   b0 81           r27 = Memory[r30:r31];
 1900:   ba 3a           cmp(r27, 0xaa);                     ; 170
@@ -5229,6 +5241,7 @@ Label_0x1906:
 Label_0x1908:
 1908:   cc 30           cmp(r28, 0x0c);                     ; 12
 190a:   b9 f4           if (c1 != c2) goto Label_0x193a;
+serial_protocol_command_c_is_peek:
 190c:   a2 e2           r26 = 34;                           ; 0x22
 190e:   7b d0           write_r26_to_com_buffer();          ; Parameters r26
 1910:   e1 e2           r30 = 33;                           ; 0x21
@@ -5261,32 +5274,33 @@ Label_0x1930:
 1932:   69 d0           write_r26_to_com_buffer();          ; Parameters r26
 1934:   ae 5d           r26 -= 222;                         ; 0xde, no carry
 1936:   67 d0           write_r26_to_com_buffer();          ; Parameters r26
-1938:   24 c0           goto Label_0x1982;
+1938:   24 c0           goto handle_received_serial_command_done;
 
 ; Referenced from offset 0x190a by brne
 Label_0x193a:
 193a:   cd 30           cmp(r28, 0x0d);                     ; 13
-193c:   09 f0           if (c1 == c2) goto Label_0x1940;
+193c:   09 f0           if (c1 == c2) goto serial_protocol_command_d_is_poke;
 193e:   28 c0           goto serial_protocol_write_handshake_to_com_buffer;
 
 ; Referenced from offset 0x193c by breq
-Label_0x1940:
+serial_protocol_command_d_is_poke:
 1940:   e1 e2           r30 = 33;                           ; 0x21
 1942:   b1 91           r27 = Memory[[r30:r31]++];
 1944:   a1 91           r26 = Memory[[r30:r31]++];
 1946:   a4 30           cmp(r26, 0x04);                     ; 4
-1948:   39 f0           if (c1 == c2) goto Label_0x1958;
+1948:   39 f0           if (c1 == c2) goto serial_protocol_command_poke_flash;
 194a:   aa 30           cmp(r26, 0x0a);                     ; 10
-194c:   29 f0           if (c1 == c2) goto Label_0x1958;
+194c:   29 f0           if (c1 == c2) goto serial_protocol_command_poke_flash;
 194e:   c0 91 13 02     r28 = cipher_key;                   ; 0x0213
 1952:   cc 23           (r28 == 0) || (r28 < 0);            ; test r28
-1954:   09 f4           if (c1 != c2) goto Label_0x1958;
+1954:   09 f4           if (c1 != c2) goto serial_protocol_command_poke_flash;
+; if cipher_key is 0 then we've not exchanged keys so don't allow the poke
 1956:   1c c0           goto serial_protocol_write_handshake_to_com_buffer;
 
 ; Referenced from offset 0x1948 by breq
 ; Referenced from offset 0x194c by breq
 ; Referenced from offset 0x1954 by brne
-Label_0x1958:
+serial_protocol_command_poke_flash:
 1958:   cb 2f           r28 = r27;
 195a:   b3 70           r27 &= 3;                           ; 0x03
 195c:   c0 7c           r28 &= 192;                         ; 0xc0
@@ -5328,7 +5342,7 @@ serial_protocol_write_success_to_com_buffer:     ; Writes a 0x6 (success code) t
 ; Referenced from offset 0x18f6 by rjmp
 ; Referenced from offset 0x1938 by rjmp
 ; Referenced from offset 0x1994 by rjmp
-Label_0x1982:
+handle_received_serial_command_done:
 1982:   1f 79           r17 &= 159;                         ; 0x9f
 ; above unset r17[bit5-received-serial-command]. set r17[bit6]
 1984:   a0 e2           r26 = 32;                           ; 0x20
@@ -5349,7 +5363,7 @@ Label_0x1982:
 serial_protocol_write_handshake_to_com_buffer:     ; Puts 0x7 into com buffer until a 0x0 is received back
 1990:   a7 e0           r26 = 7;                            ; 0x07
 1992:   39 d0           write_r26_to_com_buffer();          ; Parameters r26
-1994:   f6 cf           goto Label_0x1982;
+1994:   f6 cf           goto handle_received_serial_command_done;
 1996:   cf 91           pop     r28
 1998:   0c 94 2a 00     goto Main;
 199c:   08 95           return;
